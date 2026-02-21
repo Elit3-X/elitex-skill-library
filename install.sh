@@ -1,73 +1,76 @@
 #!/bin/bash
-
-# Antigravity Skill Library Installer
-# Installs skills, hooks, scripts, and commands into Claude Code / Antigravity directories.
+# EliteX Skill Library Installer
+# Syncs skills, hooks, scripts, commands, and global config to ~/.claude/
 
 set -e
 
-SKILLS_DIR="$HOME/.antigravity/skills"
-CLAUDE_SKILLS="$HOME/.claude/skills"
-CLAUDE_HOOKS="$HOME/.claude/hooks"
-CLAUDE_SCRIPTS="$HOME/.claude/scripts"
-CLAUDE_COMMANDS="$HOME/.claude/commands"
-CLAUDE_LOGS="$HOME/.claude/logs"
+CLAUDE_DIR="$HOME/.claude"
+REPO_URL="https://github.com/Elit3-X/elitex-skill-library.git"
 
-echo "Starting Antigravity Skill Library installation..."
+echo "EliteX Skill Library — Installing..."
 
 # Create directories
-mkdir -p "$SKILLS_DIR" "$CLAUDE_SKILLS" "$CLAUDE_HOOKS" "$CLAUDE_SCRIPTS" "$CLAUDE_COMMANDS" "$CLAUDE_LOGS"
+mkdir -p "$CLAUDE_DIR/skills" "$CLAUDE_DIR/hooks" "$CLAUDE_DIR/scripts" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/logs"
 
 # Clone if not running from within the repo
+REPO_DIR="."
 if [ ! -d "skills" ]; then
-    echo "Cloning skill library..."
-    TEMP_DIR=$(mktemp -d)
-    git clone --depth 1 https://github.com/Elit3-X/antigravity-skill-library.git "$TEMP_DIR"
-    cd "$TEMP_DIR"
+    REPO_DIR=$(mktemp -d)
+    git clone --depth 1 "$REPO_URL" "$REPO_DIR"
+    cd "$REPO_DIR"
 fi
 
-# Install skills
+# Skills
 if [ -d "skills" ]; then
-    echo "Installing skills..."
-    cp -R skills/* "$SKILLS_DIR/" 2>/dev/null || true
-    cp -R skills/* "$CLAUDE_SKILLS/" 2>/dev/null || true
-    SKILL_COUNT=$(ls -1d skills/*/ 2>/dev/null | wc -l | xargs)
-    echo "  $SKILL_COUNT skills installed"
+    echo "  Skills..."
+    cp -R skills/* "$CLAUDE_DIR/skills/"
+    echo "    $(ls -1d skills/*/ 2>/dev/null | wc -l | xargs) skills"
 fi
 
-# Install hooks
+# Hooks
 if [ -d "hooks" ]; then
-    echo "Installing hooks..."
-    cp hooks/* "$CLAUDE_HOOKS/" 2>/dev/null || true
-    HOOK_COUNT=$(ls -1 hooks/ 2>/dev/null | wc -l | xargs)
-    echo "  $HOOK_COUNT hooks installed"
+    echo "  Hooks..."
+    cp hooks/* "$CLAUDE_DIR/hooks/"
+    echo "    $(ls -1 hooks/ | wc -l | xargs) hooks"
 fi
 
-# Install scripts
+# Scripts
 if [ -d "scripts" ]; then
-    echo "Installing scripts..."
-    cp scripts/* "$CLAUDE_SCRIPTS/" 2>/dev/null || true
-    chmod +x "$CLAUDE_SCRIPTS"/*.sh 2>/dev/null || true
-    SCRIPT_COUNT=$(ls -1 scripts/ 2>/dev/null | wc -l | xargs)
-    echo "  $SCRIPT_COUNT scripts installed"
+    echo "  Scripts..."
+    cp scripts/* "$CLAUDE_DIR/scripts/"
+    chmod +x "$CLAUDE_DIR/scripts/"*.sh 2>/dev/null || true
+    echo "    $(ls -1 scripts/ | wc -l | xargs) scripts"
 fi
 
-# Install commands
+# Commands
 if [ -d "commands" ]; then
-    echo "Installing commands..."
-    cp commands/* "$CLAUDE_COMMANDS/" 2>/dev/null || true
-    CMD_COUNT=$(ls -1 commands/ 2>/dev/null | wc -l | xargs)
-    echo "  $CMD_COUNT commands installed"
+    echo "  Commands..."
+    cp commands/*.md "$CLAUDE_DIR/commands/" 2>/dev/null || true
+    [ -d "commands/gsd" ] && cp -R commands/gsd "$CLAUDE_DIR/commands/gsd"
+    echo "    $(find commands -name '*.md' | wc -l | xargs) commands"
+fi
+
+# Global config
+if [ -f "CLAUDE.md" ]; then
+    if [ -f "$CLAUDE_DIR/CLAUDE.md" ]; then
+        echo "  CLAUDE.md exists — backing up to CLAUDE.md.bak"
+        cp "$CLAUDE_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md.bak"
+    fi
+    cp CLAUDE.md "$CLAUDE_DIR/CLAUDE.md"
+fi
+
+# Settings template (don't overwrite — user must merge manually)
+if [ -f "settings.json.example" ] && [ ! -f "$CLAUDE_DIR/settings.json" ]; then
+    cp settings.json.example "$CLAUDE_DIR/settings.json"
+    echo "  settings.json installed (from template)"
+elif [ -f "settings.json.example" ]; then
+    echo "  settings.json exists — review settings.json.example for hook registration"
+fi
+
+# Cleanup temp dir
+if [ "$REPO_DIR" != "." ]; then
+    rm -rf "$REPO_DIR"
 fi
 
 echo ""
-echo "Installation complete."
-echo ""
-echo "To activate hooks, add to ~/.claude/settings.json:"
-echo '  "hooks": {'
-echo '    "PostToolUse": [{"matcher": "Write", "hooks": [{"type": "command", "command": "node ~/.claude/hooks/spec-gate.js"}]}],'
-echo '    "Stop": [{"hooks": [{"type": "command", "command": "node ~/.claude/hooks/productization-tracker.js"}]}]'
-echo '  }'
-echo ""
-echo "Scripts available:"
-echo "  ~/.claude/scripts/write-spec.sh \"task description\""
-echo "  ~/.claude/scripts/scenario-suite.sh"
+echo "Done. Restart Claude Code to pick up changes."

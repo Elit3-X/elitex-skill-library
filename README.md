@@ -1,132 +1,132 @@
-# Antigravity Skill Library
+# EliteX Skill Library
 
-Skills, hooks, scripts, and commands for Claude Code and Antigravity agents. Includes KB-derived workflow tools built from 169 processed videos (Nate B Jones + Ben AI).
+Single source of truth for Claude Code configuration across all EliteX workstations. Contains skills, hooks, scripts, commands, and global config.
 
-## Repository Structure
+## Structure
 
 ```
-skills/           # Claude Code skills (auto-invoked based on context)
-hooks/            # Lifecycle hooks (run automatically on events)
-scripts/          # Shell scripts (run manually from terminal)
-commands/         # Slash commands (invoked via /command-name in Claude Code)
+skills/              223 skills (auto-invoked by Claude based on context)
+hooks/               5 hooks (lifecycle events — automatic)
+scripts/             4 scripts (manual terminal tools)
+commands/            36 slash commands + gsd/ subcommands
+CLAUDE.md            Global agent instructions
+settings.json.example   Reference settings with hook registration
 ```
 
-## KB-Derived Components
+## What's Inside
 
-Built from the EliteX Knowledge Base — 136 structured notes, 32 named frameworks.
+### Skills (223)
 
-### Skills
+Full library covering:
 
-| Skill | Source Frameworks | What It Does |
-|-------|-------------------|-------------|
-| `spec-driven-development` | specification-bottleneck, colleague-vs-tool-shaped-ai, five-levels-of-ai-coding | Enforces spec-before-code. Colleague mode to clarify intent, Tool mode to execute. Targets Level 4+ AI coding. |
-| `agent-architecture` | agent-responsibility-minimization, multi-agent-failure-patterns, phronesis-practical-wisdom | Agent = decisions + communication only. Default to single agent. Sub-agent communication templates. Principles over rules. |
-| `prompt-templates` | prompt-engineering-frameworks | Three ready-to-use prompt formats: Short Structured, Long Structured, Agent. Use-case selection matrix included. |
+| Category | Examples | Count |
+|----------|---------|-------|
+| Azure SDKs | blob, cosmos, keyvault, search, identity, eventhub, servicebus | ~110 |
+| Frontend | react-best-practices, frontend-design, tailwind, nextjs, react-native | ~15 |
+| Backend | backend-patterns, django, springboot, fastapi, postgres, clickhouse | ~15 |
+| Testing/TDD | tdd-workflow, python-testing, golang-testing, django-tdd, springboot-tdd | ~10 |
+| Agent/AI | multi-agent-patterns, evaluation, context-optimization, memory-systems | ~15 |
+| Workflow | planning-with-files, executing-plans, verification-before-completion | ~10 |
+| Content | docx, pdf, pptx, xlsx, obsidian-markdown, obsidian-bases, json-canvas | ~10 |
+| KB-Derived | spec-driven-development, agent-architecture, prompt-templates | 3 |
+| Other | security-review, mcp-builder, brand-guidelines, algorithmic-art, etc. | ~35 |
 
-### Hooks
+**KB-Derived Skills (from EliteX Knowledge Base):**
 
-| Hook | Event | What It Does |
-|------|-------|-------------|
-| `spec-gate.js` | PostToolUse (Write) | Warns when writing code without a SPEC.md in the project root. Automatic, silent when spec exists. |
-| `productization-tracker.js` | Stop | Logs date/project/description to `~/.claude/logs/solutions-built.log` after each build session. Surfaces productization candidates over time. |
+| Skill | Source Frameworks | Purpose |
+|-------|-------------------|---------|
+| `spec-driven-development` | specification-bottleneck, colleague-vs-tool-shaped-ai, five-levels-of-ai-coding | Spec before code. Colleague mode to clarify, Tool mode to execute. |
+| `agent-architecture` | agent-responsibility-minimization, multi-agent-failure-patterns, phronesis | Agent = decisions only. Single agent default. Principles over rules. |
+| `prompt-templates` | prompt-engineering-frameworks | Short/Long/Agent prompt formats with selection matrix. |
 
-### Scripts
+### Hooks (5)
 
-| Script | Usage | What It Does |
-|--------|-------|-------------|
-| `write-spec.sh` | `write-spec.sh "task description"` | Runs Claude in colleague-shaped mode to produce a SPEC.md. Use before ralph-loop. |
-| `scenario-suite.sh` | `scenario-suite.sh` (from project root) | Generates SCENARIOS.md — external behavioral specs the agent never sees during development. Holdout set for quality gating. |
+| Hook | Event | Purpose |
+|------|-------|---------|
+| `spec-gate.js` | PostToolUse (Write) | Warns when writing code without SPEC.md |
+| `productization-tracker.js` | Stop | Logs builds to `~/.claude/logs/solutions-built.log` |
+| `kb-reflection.js` | Stop | Logs session completions to Knowledge Base |
+| `gsd-check-update.js` | SessionStart | GSD mode initialization |
+| `gsd-statusline.js` | StatusLine | GSD status bar display |
 
-### Commands
+### Scripts (4)
 
-| Command | Usage | What It Does |
-|---------|-------|-------------|
-| `kb` | `/kb <query>` | Search the Knowledge Base for frameworks, insights, and actionable ideas |
-| `scope-project` | `/scope-project <description>` | Generate a project scope with pricing using KB agency frameworks |
-| `blog-from-kb` | `/blog-from-kb <topic>` | Generate an elite-x.tech blog article grounded in KB content |
-| `brainstorm` | `/brainstorm <topic>` | Structured brainstorming session using KB + venture context |
+| Script | Usage | Purpose |
+|--------|-------|---------|
+| `write-spec.sh` | `write-spec.sh "task"` | Claude generates SPEC.md from task description |
+| `scenario-suite.sh` | `scenario-suite.sh` | Generates external behavioral scenarios (holdout set) |
+| `ralph-loop.sh` | `ralph-loop.sh SPEC.md 10` | Autonomous build loop — git as memory, tests as exit criteria |
+| `kb-ingest.sh` | `kb-ingest.sh` | Ingest new content into Knowledge Base |
+
+### Commands (36 + 31 gsd subcommands)
+
+**Knowledge Base:**
+`/kb`, `/brainstorm`, `/blog-from-kb`, `/scope-project`
+
+**Vault:**
+`/obsidian`, `/noobsidian`, `/research-to-vault`
+
+**Secrets:**
+`/get-secret`, `/gen-password`
+
+**GSD (Get Shit Done):**
+`/gsd-new-project`, `/gsd-new-milestone`, `/gsd-execute-phase`, `/gsd-progress`, `/gsd-debug`, and 27 more.
 
 ## Installation
 
-### Automated (Recommended)
+### Automated
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Elit3-X/antigravity-skill-library/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Elit3-X/elitex-skill-library/main/install.sh | bash
 ```
 
 ### Manual
 
 ```bash
-git clone https://github.com/Elit3-X/antigravity-skill-library.git
-cd antigravity-skill-library
+git clone https://github.com/Elit3-X/elitex-skill-library.git
+cd elitex-skill-library
 
 # Skills
 cp -R skills/* ~/.claude/skills/
 
 # Hooks
-mkdir -p ~/.claude/hooks
 cp hooks/* ~/.claude/hooks/
 
 # Scripts
-mkdir -p ~/.claude/scripts
 cp scripts/* ~/.claude/scripts/
 chmod +x ~/.claude/scripts/*.sh
 
 # Commands
-mkdir -p ~/.claude/commands
-cp commands/* ~/.claude/commands/
+cp commands/*.md ~/.claude/commands/
+cp -R commands/gsd ~/.claude/commands/gsd
+
+# Global config (review before overwriting)
+cp CLAUDE.md ~/.claude/CLAUDE.md
+cp settings.json.example ~/.claude/settings.json
 ```
 
-Then add hooks to `~/.claude/settings.json`:
+### Push Local Changes Back
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"~/.claude/hooks/spec-gate.js\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"~/.claude/hooks/productization-tracker.js\""
-          }
-        ]
-      }
-    ]
-  }
-}
+After modifying skills/hooks/scripts locally, sync back to the repo:
+
+```bash
+cd /path/to/elitex-skill-library
+cp -R ~/.claude/skills/* skills/
+cp ~/.claude/hooks/*.js hooks/
+cp ~/.claude/scripts/*.sh scripts/
+cp ~/.claude/commands/*.md commands/
+cp -R ~/.claude/commands/gsd commands/gsd
+cp ~/.claude/CLAUDE.md CLAUDE.md
+git add -A && git commit -m "sync from workstation" && git push
 ```
 
 ## Workflow
 
-1. Have an idea -> `write-spec.sh "the idea"` -> produces SPEC.md
-2. Run `scenario-suite.sh` -> produces SCENARIOS.md (external holdout set)
-3. Run `ralph-loop.sh SPEC.md` -> autonomous build loop
-4. `spec-gate` hook stays silent because SPEC.md exists
-5. Session ends, `productization-tracker` logs what was built
-6. Skills activate silently when Claude detects relevant context
-
-## Source Frameworks
-
-| Framework | Origin | Key Insight |
-|-----------|--------|-------------|
-| Specification Bottleneck | Nate B Jones | Code is cheap, specs are expensive. Invest in spec quality. |
-| Colleague vs Tool-Shaped AI | Nate B Jones | Start exploratory (colleague), switch to execution (tool). |
-| 5 Levels of AI Coding | Nate B Jones | Most devs plateau at Level 2. Target Level 4+. |
-| Agent Responsibility Minimization | Ben AI | Agent = decisions only. Tools do generation. Sub-agents do specialized reasoning. |
-| Multi-Agent Failure Patterns | Nate B Jones | More agents = worse. Default to single agent. |
-| Phronesis (Practical Wisdom) | Nate B Jones | Write principles, not rules. Agents need judgment. |
-| Scenarios vs Tests | Nate B Jones | Tests are gameable. Scenarios (external holdout) are not. |
-| Prompt Engineering Frameworks | Ben AI | Short/Long/Agent templates. Notes section exploits end-of-prompt attention. |
-| Ralph Pattern | Nate B Jones | Loop until tests pass. Git as memory. Simpler than orchestration. |
-| Productized AI System | Ben AI | Track what you build. 3+ repeats = productize. 85% margins vs 40%. |
+```
+Idea -> write-spec.sh -> SPEC.md
+SPEC.md -> scenario-suite.sh -> SCENARIOS.md
+SPEC.md -> ralph-loop.sh -> Autonomous build (git as memory, tests as gate)
+                             spec-gate hook stays silent (spec exists)
+                             productization-tracker logs the build
+                             kb-reflection logs completions
+```

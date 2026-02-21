@@ -1,0 +1,69 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "true"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Edit",
+      "Write",
+      "WebFetch",
+      "WebSearch",
+      "Task",
+      "NotebookEdit",
+      "mcp__ide__getDiagnostics",
+      "mcp__ide__executeCode"
+    ],
+    "additionalDirectories": [
+      "/Users/satori/Documents/Development/Veliano/src/app/[locale]/admin",
+      "/Users/satori/Documents/Development/KaufDahoam/KaufDahoam/apps/web/app/[locale]",
+      "/Users/satori/Documents/Development/KaufDahoam/KaufDahoam/apps/web/app/[locale]/hof/[slug]"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/gsd-check-update.js\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/spec-gate.js\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/kb-reflection.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/productization-tracker.js\""
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node \"/Users/satori/.claude/hooks/gsd-statusline.js\""
+  },
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": true
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "sonnet"
+}
