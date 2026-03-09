@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "apple-mail": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/satori/.claude/mcp-servers/apple-mail-mcp/build/index.js"]
+    }
+  }
+}

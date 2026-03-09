@@ -17,7 +17,9 @@
     "additionalDirectories": [
       "/Users/satori/Documents/Development/Veliano/src/app/[locale]/admin",
       "/Users/satori/Documents/Development/KaufDahoam/KaufDahoam/apps/web/app/[locale]",
-      "/Users/satori/Documents/Development/KaufDahoam/KaufDahoam/apps/web/app/[locale]/hof/[slug]"
+      "/Users/satori/Documents/Development/KaufDahoam/KaufDahoam/apps/web/app/[locale]/hof/[slug]",
+      "/Users/satori/Documents/Development/Kriyaverse-Antigravity",
+      "/Users/satori/Documents/Development/Kriyaverse"
     ]
   },
   "hooks": {
@@ -27,6 +29,18 @@
           {
             "type": "command",
             "command": "node \"/Users/satori/.claude/hooks/gsd-check-update.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/vault-index-builder.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/vault-context-loader.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/handoff-resume-loader.js\""
           }
         ]
       }
@@ -40,6 +54,14 @@
             "command": "node \"/Users/satori/.claude/hooks/spec-gate.js\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/satori/.claude/hooks/gsd-context-monitor.js\""
+          }
+        ]
       }
     ],
     "Stop": [
@@ -47,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/satori/.claude/hooks/kb-reflection.js\""
+            "command": "node \"/Users/satori/.claude/hooks/vault-reflection-writer.js\""
           },
           {
             "type": "command",
@@ -64,6 +86,5 @@
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true
   },
-  "skipDangerousModePermissionPrompt": true,
-  "model": "sonnet"
+  "skipDangerousModePermissionPrompt": true
 }

@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "firebase-tools@latest",
+        "experimental:mcp",
+        "--project",
+        "kriyaverse-dd9dd"
+      ],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/Users/satori/Downloads/kriyaverse-dd9dd-firebase-adminsdk-fbsvc-17a137ce3e.json"
+      }
+    },
+    "posthog": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "https://mcp.posthog.com/sse",
+        "--header",
+        "Authorization:Bearer phx_FepPMY7Cu1Kwg64rAU1S8TVxUiObNHmrjTa8IbkR0pbPljC"
+      ]
+    },
+    "apple-mail": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/satori/.claude/mcp-servers/apple-mail-mcp/build/index.js"]
+    }
+  }
+}

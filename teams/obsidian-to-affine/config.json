@@ -1,0 +1,103 @@
+{
+  "name": "obsidian-to-affine",
+  "description": "Migrate 190 Obsidian vault files to Affine NAS workspaces with categorization, tagging, and audit",
+  "createdAt": 1772402714853,
+  "leadAgentId": "team-lead@obsidian-to-affine",
+  "leadSessionId": "5d10cf99-16cd-445a-af38-9e4cd2859633",
+  "members": [
+    {
+      "agentId": "team-lead@obsidian-to-affine",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1772402714853,
+      "tmuxPaneId": "",
+      "cwd": "/Users/satori",
+      "subscriptions": []
+    },
+    {
+      "agentId": "worker-1@obsidian-to-affine",
+      "name": "worker-1",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are Worker 1 in the obsidian-to-affine migration team. Your task: import 33 Obsidian markdown files into the EliteX Affine workspace.\n\nRun this command:\n```\nnode /tmp/obsidian-migration/import-to-affine.mjs /tmp/obsidian-migration/worker-1-elitex.json\n```\n\nAfter it completes, read the results file at /tmp/obsidian-migration/worker-1-elitex-results.json and report:\n1. How many files imported successfully\n2. How many errors occurred\n3. List any errors with filenames\n\nThen mark task #1 as completed using TaskUpdate.\n",
+      "color": "blue",
+      "planModeRequired": false,
+      "joinedAt": 1772402750540,
+      "tmuxPaneId": "%0",
+      "cwd": "/Users/satori",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "worker-2@obsidian-to-affine",
+      "name": "worker-2",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are Worker 2 in the obsidian-to-affine migration team. Your task: import 74 Knowledge Base markdown files (first half) into the Research Affine workspace.\n\nRun this command:\n```\nnode /tmp/obsidian-migration/import-to-affine.mjs /tmp/obsidian-migration/worker-2-kb-part1.json\n```\n\nAfter it completes, read the results file at /tmp/obsidian-migration/worker-2-kb-part1-results.json and report:\n1. How many files imported successfully\n2. How many errors occurred\n3. List any errors with filenames\n\nThen mark task #2 as completed using TaskUpdate.\n",
+      "color": "green",
+      "planModeRequired": false,
+      "joinedAt": 1772402752997,
+      "tmuxPaneId": "%1",
+      "cwd": "/Users/satori",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "worker-3@obsidian-to-affine",
+      "name": "worker-3",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are Worker 3 in the obsidian-to-affine migration team. Your task: import 74 Knowledge Base markdown files (second half) into the Research Affine workspace.\n\nRun this command:\n```\nnode /tmp/obsidian-migration/import-to-affine.mjs /tmp/obsidian-migration/worker-3-kb-part2.json\n```\n\nAfter it completes, read the results file at /tmp/obsidian-migration/worker-3-kb-part2-results.json and report:\n1. How many files imported successfully\n2. How many errors occurred\n3. List any errors with filenames\n\nThen mark task #3 as completed using TaskUpdate.\n",
+      "color": "yellow",
+      "planModeRequired": false,
+      "joinedAt": 1772402755088,
+      "tmuxPaneId": "%2",
+      "cwd": "/Users/satori",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "worker-4@obsidian-to-affine",
+      "name": "worker-4",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are Worker 4 in the obsidian-to-affine migration team. Your task: import 9 remaining Obsidian files (Inbox, Sovereign-AI-OS, Ilā) into the Research Affine workspace.\n\nRun this command:\n```\nnode /tmp/obsidian-migration/import-to-affine.mjs /tmp/obsidian-migration/worker-4-other.json\n```\n\nAfter it completes, read the results file at /tmp/obsidian-migration/worker-4-other-results.json and report:\n1. How many files imported successfully\n2. How many errors occurred\n3. List any errors with filenames\n\nThen mark task #4 as completed using TaskUpdate.\n",
+      "color": "purple",
+      "planModeRequired": false,
+      "joinedAt": 1772402757303,
+      "tmuxPaneId": "%3",
+      "cwd": "/Users/satori",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "worker-5@obsidian-to-affine",
+      "name": "worker-5",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are Worker 5 (Documenter) for the obsidian-to-affine migration team.\n\nAll 4 import workers completed successfully. Read these result files and create a comprehensive migration report:\n\n1. Read /tmp/obsidian-migration/worker-1-elitex-results.json\n2. Read /tmp/obsidian-migration/worker-2-kb-part1-results.json\n3. Read /tmp/obsidian-migration/worker-3-kb-part2-results.json\n4. Read /tmp/obsidian-migration/worker-4-other-results.json\n5. Read /tmp/obsidian-migration/full-manifest.json for the categorization plan\n\nCreate a structured report at /tmp/obsidian-migration/MIGRATION-REPORT.md with:\n- Executive summary (total files, zero errors)\n- Workspace breakdown (EliteX: 33 docs, Research: 157 docs)\n- Folder structure created in each workspace\n- Tag distribution analysis\n- Files per project/category\n- Any warnings or lossy conversions from the results\n\nAfter writing the report, mark task #5 as completed using TaskUpdate.",
+      "color": "orange",
+      "planModeRequired": false,
+      "joinedAt": 1772406076881,
+      "tmuxPaneId": "%4",
+      "cwd": "/Users/satori",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "worker-6@obsidian-to-affine",
+      "name": "worker-6",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are Worker 6 (Auditor) for the obsidian-to-affine migration team.\n\nAll 190 files have been imported. Perform a thorough audit:\n\n1. **Count docs in Affine database** by running:\n   ```\n   ssh -i ~/.ssh/mikrotik -o ConnectTimeout=5 Satori@192.168.10.50 \"docker exec affine_postgres psql -U affine -d affine -c \\\"SELECT workspace_id, COUNT(*) as doc_count FROM snapshots WHERE guid != workspace_id AND guid NOT LIKE 'db\\$%' GROUP BY workspace_id;\\\"\"\n   ```\n\n2. **Verify Chris has NO access to Research workspace** by running:\n   ```\n   ssh -i ~/.ssh/mikrotik -o ConnectTimeout=5 Satori@192.168.10.50 \"docker exec affine_postgres psql -U affine -d affine -c \\\"SELECT u.email, wup.workspace_id, wup.type FROM workspace_user_permissions wup JOIN users u ON u.id = wup.user_id ORDER BY wup.workspace_id;\\\"\"\n   ```\n\n3. **Check for the test document** that was created before the migration (doc guid 'f2a19b9306' in Research workspace — this is a duplicate test import that should be noted)\n\n4. **Compare counts**: Source inventory had 190 files. Worker results: 33 + 74 + 74 + 9 = 190. Verify DB count matches.\n\n5. **Read the result files** to check for any lossy conversions or warnings:\n   - /tmp/obsidian-migration/worker-1-elitex-results.json\n   - /tmp/obsidian-migration/worker-2-kb-part1-results.json  \n   - /tmp/obsidian-migration/worker-3-kb-part2-results.json\n   - /tmp/obsidian-migration/worker-4-other-results.json\n\nWrite the audit report to /tmp/obsidian-migration/AUDIT-REPORT.md with:\n- Pass/Fail status for each check\n- Doc count verification (expected vs actual)\n- Security verification (Chris access)\n- Data integrity notes\n- Recommendations\n\nAfter writing the report, mark task #6 as completed using TaskUpdate.",
+      "color": "pink",
+      "planModeRequired": false,
+      "joinedAt": 1772406087551,
+      "tmuxPaneId": "%5",
+      "cwd": "/Users/satori",
+      "subscriptions": [],
+      "backendType": "tmux"
+    }
+  ]
+}

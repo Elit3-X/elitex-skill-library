@@ -1,0 +1,47 @@
+{
+  "name": "kriyaverse-migration",
+  "description": "KriyaVerse RN migration — orchestrating Phases 3–9 end-to-end",
+  "createdAt": 1772056457064,
+  "leadAgentId": "team-lead@kriyaverse-migration",
+  "leadSessionId": "e38933c7-e9a9-46fd-87f6-ae0484e71b9c",
+  "members": [
+    {
+      "agentId": "team-lead@kriyaverse-migration",
+      "name": "team-lead",
+      "agentType": "orchestrator",
+      "model": "claude-sonnet-4-6",
+      "joinedAt": 1772056457064,
+      "tmuxPaneId": "",
+      "cwd": "/Users/satori/Documents/Development/Kriyaverse",
+      "subscriptions": []
+    },
+    {
+      "agentId": "researcher-p3@kriyaverse-migration",
+      "name": "researcher-p3",
+      "agentType": "gsd-phase-researcher",
+      "model": "claude-opus-4-6",
+      "prompt": "You are researching Phase 3 of the KriyaVerse React Native migration.\n\nPROJECT: /Users/satori/Documents/Development/Kriyaverse\nPLANNING DIR: /Users/satori/Documents/Development/Kriyaverse-Antigravity/.planning\nTASK: #1 (claim it with TaskUpdate owner=\"researcher-p3\", status=\"in_progress\")\n\n## Phase 3: Subscriptions\nGoal: App enforces paid access; users can purchase a subscription through Google Play.\n\nKey requirements:\n- RevenueCat SDK (react-native-purchases) — current version, React Native 0.81 + Expo SDK 54 compat\n- Google Play Billing integration (product IDs: kriyaverse_full, kriyaverse_arc)\n- 4-tier access system: FULL_ACCESS | TRIAL_ACCESS | ARC_ACCESS | BLOCKED\n- Trial: 5-day window from max(created_at, TRIAL_RESET_DATE=2025-12-16)\n- Owner override: acid9burn@gmail.com → FULL_ACCESS always\n- Kotlin 2.0.21 already set in app.json expo-build-properties\n- Existing auth: @react-native-firebase/auth v23.8.x\n- Existing access tier helper: /Users/satori/Documents/Development/Kriyaverse/lib/auth-utils.ts\n\n## What to research:\n1. react-native-purchases install for Expo SDK 54 (config plugin, bare workflow)\n2. RevenueCat entitlement → access tier mapping pattern\n3. Zustand store for subscription state (entitlement cache)\n4. Paywall screen patterns (native RevenueCat paywall vs custom)\n5. Sandbox testing flow on Android emulator\n6. Any known conflicts with @react-native-firebase v23 + RevenueCat v8+\n7. Read existing auth-utils.ts and lib/types.ts to understand current tier system\n\n## Output:\nWrite research findings to: /Users/satori/Documents/Development/Kriyaverse-Antigravity/.planning/phases/03-subscriptions/03-RESEARCH.md\n\nCreate the directory first: mkdir -p /Users/satori/Documents/Development/Kriyaverse-Antigravity/.planning/phases/03-subscriptions/\n\nWhen complete:\n1. Mark task #1 as completed (TaskUpdate taskId=\"1\" status=\"completed\")\n2. Send message to team-lead: \"Phase 3 research complete. RESEARCH.md written to 03-subscriptions/.\"",
+      "color": "blue",
+      "planModeRequired": false,
+      "joinedAt": 1772056569868,
+      "tmuxPaneId": "%0",
+      "cwd": "/Users/satori/Documents/Development/Kriyaverse",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "researcher-p4@kriyaverse-migration",
+      "name": "researcher-p4",
+      "agentType": "gsd-phase-researcher",
+      "model": "claude-opus-4-6",
+      "prompt": "You are researching Phase 4 of the KriyaVerse React Native migration.\n\nPROJECT: /Users/satori/Documents/Development/Kriyaverse\nPLANNING DIR: /Users/satori/Documents/Development/Kriyaverse-Antigravity/.planning\nTASK: #2 (claim it: TaskUpdate taskId=\"2\" owner=\"researcher-p4\" status=\"in_progress\")\n\n## Phase 4: Meditation Timer\nGoal: Users can run a full Kriya meditation session with smooth native breathing animation at 60fps.\n\nKey requirements:\n- Reanimated 3 (~3.17.4 pinned) breathing orb animation — inhale/hold/exhale/post-hold\n- Kriya ratios: inhale 6s, hold 3s, exhale 6s, post-hold 3s (verify from existing meditation-session screen)\n- Phase label (Inhale/Hold/Exhale) synced to animation — no drift\n- expo-keep-awake to prevent screen lock during session\n- Firebase Analytics event on session completion\n- 60fps on mid-range Android (worklet-based, no JS thread blocking)\n- Existing meditation-session screen: /Users/satori/Documents/Development/Kriyaverse/app/meditation-session/[packId]/[subKriyaId].tsx\n\n## What to research:\n1. Read the existing meditation-session screen fully\n2. Read lib/meditation-data.ts for pack/subKriya structure\n3. Reanimated 3 withTiming/withSequence/withRepeat for breathing cycle\n4. useSharedValue + useAnimatedStyle for the orb scale/opacity\n5. useAnimatedReaction for syncing phase label to animation progress (no drift)\n6. expo-keep-awake API (activateKeepAwakeAsync / deactivateKeepAwakeAsync)\n7. expo-firebase-analytics or @react-native-firebase/analytics for session_complete event\n8. Check if newArchEnabled:false affects Reanimated 3 worklet execution\n\n## Output:\nWrite research to: /Users/satori/Documents/Development/Kriyaverse-Antigravity/.planning/phases/04-meditation-timer/04-RESEARCH.md\nCreate dir: mkdir -p /Users/satori/Documents/Development/Kriyaverse-Antigravity/.planning/phases/04-meditation-timer/\n\nWhen complete:\n1. TaskUpdate taskId=\"2\" status=\"completed\"\n2. Send message to team-lead: \"Phase 4 research complete. RESEARCH.md written to 04-meditation-timer/.\"",
+      "color": "green",
+      "planModeRequired": false,
+      "joinedAt": 1772056580514,
+      "tmuxPaneId": "%1",
+      "cwd": "/Users/satori/Documents/Development/Kriyaverse",
+      "subscriptions": [],
+      "backendType": "tmux"
+    }
+  ]
+}

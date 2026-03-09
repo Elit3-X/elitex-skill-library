@@ -1,0 +1,61 @@
+{
+  "name": "logo-fix",
+  "description": "Fix ARC logo not displaying - systematic investigation",
+  "createdAt": 1771319588569,
+  "leadAgentId": "team-lead@logo-fix",
+  "leadSessionId": "e8db431e-a207-4b94-9b01-8c7c19b0565d",
+  "members": [
+    {
+      "agentId": "team-lead@logo-fix",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1771319588569,
+      "tmuxPaneId": "",
+      "cwd": "/Users/satori/Documents/Development/ArcPlayer/IPTV/apps/arctv_app",
+      "subscriptions": []
+    },
+    {
+      "agentId": "icon-agent@logo-fix",
+      "name": "icon-agent",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are on team \"logo-fix\". Your task is #1: Investigate macOS icon cache and app bundle.\n\nThe user reports the app icon still shows the OLD logo (a colorful VHS swirl) instead of the new ARC logo (dark text \"ARC\" with play button). The icon PNG files in the source have been verified to contain the correct ARC logo.\n\nIMPORTANT CONTEXT: The app is a Flutter macOS app at /Users/satori/Documents/Development/ArcPlayer/IPTV/apps/arctv_app\n\nDo these checks:\n1. Look inside the BUILT app bundle at build/macos/Build/Products/Debug/arctv_app.app/Contents/Resources/ — check what icon file is there (AppIcon.icns or Assets.car)\n2. If Assets.car exists, use `assetutil --info` to inspect it\n3. Check if the AppIcon.appiconset/Contents.json is correctly configured\n4. Check macOS icon caches: ~/Library/Caches/com.apple.iconservices.store and /Library/Caches/com.apple.iconservices.store\n5. Try clearing icon caches: `sudo rm -rfv ~/Library/Caches/com.apple.iconservices.store; sudo rm -rfv /Library/Caches/com.apple.iconservices.store`\n6. Run `sudo killall -KILL Dock` to force Dock icon refresh\n7. Check if the running app is actually the one from the build directory (ps aux | grep arctv)\n\nReport your findings. Use Bash for all commands. Mark task #1 complete when done.",
+      "color": "blue",
+      "planModeRequired": false,
+      "joinedAt": 1771319617566,
+      "tmuxPaneId": "%6",
+      "cwd": "/Users/satori/Documents/Development/ArcPlayer/IPTV/apps/arctv_app",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "asset-agent@logo-fix",
+      "name": "asset-agent",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are on team \"logo-fix\". Your task is #2: Verify in-app logo assets are bundled correctly.\n\nThe user reports seeing the OLD logo inside the app (splash screen, sidebar, settings). The source code references 'assets/images/logo.jpg' but the old logo was 'assets/images/VHS.png'.\n\nThe app is at /Users/satori/Documents/Development/ArcPlayer/IPTV/apps/arctv_app\nThe built app is at build/macos/Build/Products/Debug/arctv_app.app\n\nDo these checks:\n1. Look inside the built app bundle: find arctv_app.app -name \"AssetManifest*\" or similar flutter asset files\n2. Check arctv_app.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/ for the actual bundled assets\n3. Verify logo.jpg exists in the flutter_assets directory\n4. Check if VHS.png is also bundled and compare file sizes/content\n5. Use `md5` to compare the source logo.jpg with the bundled one to ensure they match\n6. Check if packages/ui_tv/assets/images/logo.jpg is also bundled (as packages/ui_tv/assets/images/logo.jpg in the bundle)\n7. Read the AssetManifest.json to see which assets are registered\n\nReport ALL findings. Use Bash for file system exploration. Mark task #2 complete when done.",
+      "color": "green",
+      "planModeRequired": false,
+      "joinedAt": 1771319624809,
+      "tmuxPaneId": "%7",
+      "cwd": "/Users/satori/Documents/Development/ArcPlayer/IPTV/apps/arctv_app",
+      "subscriptions": [],
+      "backendType": "tmux"
+    },
+    {
+      "agentId": "code-agent@logo-fix",
+      "name": "code-agent",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-6",
+      "prompt": "You are on team \"logo-fix\". Your task is #3: Check all logo references and asset paths in code.\n\nThe user sees the OLD VHS logo instead of the new ARC logo. Search the entire codebase for any issues.\n\nThe project is at /Users/satori/Documents/Development/ArcPlayer/IPTV\n\nDo these checks:\n1. Search for ALL references to VHS.png in Dart files: grep -r \"VHS.png\" --include=\"*.dart\" across the entire project\n2. Search for ALL references to logo.jpg in Dart files: grep -r \"logo.jpg\" --include=\"*.dart\" \n3. Search for ALL Image.asset calls: grep -rn \"Image.asset\" --include=\"*.dart\" packages/ apps/\n4. Check if splash_screen.dart correctly references logo.jpg (not VHS.png)\n5. Check if tv_sidebar.dart correctly references logo.jpg with package: 'ui_tv'\n6. Check if tv_settings_screen.dart correctly references logo.jpg\n7. Check if there's a package: parameter mismatch — when ui_tv code loads 'assets/images/logo.jpg', does it need package: 'ui_tv'?\n8. Verify the pubspec.yaml files for BOTH arctv_app AND ui_tv register logo.jpg in assets section\n9. Check for any asset_image.dart, image_cache or similar files that might override image loading\n\nReport ALL findings with file:line references. Mark task #3 complete when done.",
+      "color": "yellow",
+      "planModeRequired": false,
+      "joinedAt": 1771319631291,
+      "tmuxPaneId": "%8",
+      "cwd": "/Users/satori/Documents/Development/ArcPlayer/IPTV/apps/arctv_app",
+      "subscriptions": [],
+      "backendType": "tmux"
+    }
+  ]
+}

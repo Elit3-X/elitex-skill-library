@@ -1,0 +1,19 @@
+{
+  "name": "testflight-fix-sprint",
+  "description": "Fix all 14 TestFlight feedback items from build 1.0.0 — P0 crash, P1 broken features, P2 search/data, P3 i18n",
+  "createdAt": 1772521772409,
+  "leadAgentId": "team-lead@testflight-fix-sprint",
+  "leadSessionId": "a2944dbe-9e82-41ae-9f34-a50ebad165b8",
+  "members": [
+    {
+      "agentId": "team-lead@testflight-fix-sprint",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "model": "claude-opus-4-6",
+      "joinedAt": 1772521772409,
+      "tmuxPaneId": "",
+      "cwd": "/Users/satori/Documents/Development/KaufDahoam/KaufDahoam/apps/web",
+      "subscriptions": []
+    }
+  ]
+}

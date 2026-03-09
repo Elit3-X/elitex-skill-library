@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "cleaning-data",
+  "owner": "tilmon-engineering",
+  "repo": "claude-skills",
+  "path": "plugins/datapeeker/skills/cleaning-data",
+  "branch": "main",
+  "sha": "df3da5822b8ad728f209a825650af83fade6fa97",
+  "source": "manual"
+}

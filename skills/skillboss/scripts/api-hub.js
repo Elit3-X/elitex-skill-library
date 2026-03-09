@@ -1,21 +1,25 @@
 #!/usr/bin/env node
 
-const fs = require('fs')
-const path = require('path')
-const { pipeline } = require('stream/promises')
-const { Readable } = require('stream')
-const { fetchWithRetry } = require('./lib/fetch-retry')
-
 /**
  * SkillBoss API Hub - Multi-Provider API Gateway Client
  *
  * Provides unified access to multiple AI/ML providers:
- * - Chat: bedrock, openai, openrouter, vertex, anthropic, minimax, perplexity
+ * - Chat: bedrock, openai, openrouter, vertex, anthropic, minimax, perplexity, huggingface
  * - TTS: elevenlabs, minimax, openai, replicate
- * - Image: vertex/gemini-3-pro-image-preview, replicate/flux
- * - Search: scrapingdog, perplexity, firecrawl
- * - Video: minimax
+ * - Image: vertex/gemini-3-pro-image-preview, replicate/flux, fal/img2img, huggingface
+ * - Upscale: fal/upscale (creative-upscaler)
+ * - Search: scrapingdog, perplexity, firecrawl, linkup (structured search + fetch)
+ * - Video: minimax, huggingface
+ * - STT: openai/whisper-1, huggingface (speech-to-text)
+ * - Embedding: huggingface
+ * - Document: reducto (parse, extract, split, edit)
+ * - SMS/Verify: prelude (OTP send/check, notify)
  * - Email: aws/ses
+ *
+ * HuggingFace Dynamic Routing:
+ * - Any model on huggingface.co works as "huggingface/{org}/{model}" without pre-registration
+ * - Chat: node api-hub.js chat --model "huggingface/meta-llama/Llama-3.1-8B-Instruct" --prompt "Hello"
+ * - Other tasks via /run: --inputs '{"task":"embedding"}' or '{"task":"image"}' etc.
  *
  * Usage:
  *   node api-hub.js run --model "vendor/model" --inputs '{"key":"value"}' [--stream] [--output file]
@@ -23,634 +27,37 @@ const { fetchWithRetry } = require('./lib/fetch-retry')
  *   node api-hub.js tts --model "elevenlabs/eleven_multilingual_v2" --text "Hello" --output audio.mp3
  *   node api-hub.js image --model "vertex/gemini-3-pro-image-preview" --prompt "A sunset" [--output image.png]
  *   node api-hub.js image --model "replicate/black-forest-labs/flux-schnell" --prompt "A sunset" [--output image.png]
+ *   node api-hub.js upscale --image-url "https://example.com/photo.jpg" [--scale 2] [--output upscaled.png]
+ *   node api-hub.js img2img --image-url "https://example.com/photo.jpg" --prompt "watercolor painting" [--output result.jpg]
  *   node api-hub.js search --model "scrapingdog/google_search" --query "nodejs"
+ *   node api-hub.js linkup-search --query "latest AI news" [--output-type searchResults|sourcedAnswer|structured] [--depth standard|deep]
+ *   node api-hub.js linkup-fetch --url "https://example.com" [--render-js]
  *   node api-hub.js scrape --model "firecrawl/scrape" --url "https://example.com"
+ *   node api-hub.js stt --file recording.mp3 [--model "openai/whisper-1"] [--prompt "..."] [--language "en"] [--output transcript.txt]
+ *   node api-hub.js sms-verify --phone "+1234567890"
+ *   node api-hub.js sms-check --phone "+1234567890" --code "123456"
+ *   node api-hub.js sms-send --phone "+1234567890" --template-id "your_template_id"
  *   node api-hub.js send-email --to "a@b.com" --subject "Subject" --body "<html>...</html>"
  *   node api-hub.js send-batch --subject "Hello {{name}}" --body "<html>...</html>" --receivers '[...]'
  */
 
-// Load config from config.json (sibling to scripts folder)
-const CONFIG_PATH = path.join(__dirname, '..', 'config.json')
-
-function loadConfig() {
-  try {
-    const configData = fs.readFileSync(CONFIG_PATH, 'utf8')
-    return JSON.parse(configData)
-  } catch (err) {
-    throw new Error(`Failed to load config from ${CONFIG_PATH}: ${err.message}`)
-  }
-}
-
-const config = loadConfig()
-
-// Configuration from config.json
-const API_HUB_API_KEY = config.apiKey
-const API_HUB_BASE_URL = config.baseUrl || 'https://api.heybossai.com/v1'
-
-/**
- * Simple HTTP client for API Hub
- * @param {string} endpoint - API endpoint
- * @param {object} data - Request body
- * @returns {Promise<object>} Response data
- */
-async function apiHubPost(endpoint, data) {
-  if (!API_HUB_API_KEY || API_HUB_API_KEY === 'YOUR_API_KEY_HERE') {
-    throw new Error(
-      'API key not configured. Please update config.json with your API key.',
-    )
-  }
-
-  const response = await fetchWithRetry(`${API_HUB_BASE_URL}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_HUB_API_KEY}`,
-    },
-    body: JSON.stringify(data),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API Hub request failed: ${response.status} ${errorText}`)
-  }
-
-  return response.json()
-}
-
-/**
- * Stream response from API Hub (SSE)
- * @param {string} endpoint - API endpoint
- * @param {object} data - Request body
- * @yields {object} Parsed SSE data chunks
- */
-async function* apiHubStream(endpoint, data) {
-  if (!API_HUB_API_KEY || API_HUB_API_KEY === 'YOUR_API_KEY_HERE') {
-    throw new Error(
-      'API key not configured. Please update config.json with your API key.',
-    )
-  }
-
-  const response = await fetchWithRetry(`${API_HUB_BASE_URL}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_HUB_API_KEY}`,
-    },
-    body: JSON.stringify(data),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API Hub request failed: ${response.status} ${errorText}`)
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() // Keep incomplete line in buffer
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (trimmed.startsWith('data: ')) {
-        const data = trimmed.slice(6)
-        if (data === '[DONE]') return
-        try {
-          yield JSON.parse(data)
-        } catch {
-          // Skip non-JSON data lines
-        }
-      }
-    }
-  }
-}
-
-/**
- * Save binary response to file
- * @param {Response} response - Fetch Response object
- * @param {string} outputPath - File path to save to
- */
-async function saveBinaryResponse(response, outputPath) {
-  const fileStream = fs.createWriteStream(outputPath)
-  await pipeline(Readable.fromWeb(response.body), fileStream)
-}
-
-/**
- * Simple HTTP GET client for API Hub
- * @param {string} endpoint - API endpoint
- * @returns {Promise<object>} Response data
- */
-async function apiHubGet(endpoint) {
-  if (!API_HUB_API_KEY || API_HUB_API_KEY === 'YOUR_API_KEY_HERE') {
-    throw new Error('API key not configured. Please update config.json with your API key.')
-  }
-
-  const response = await fetchWithRetry(`${API_HUB_BASE_URL}${endpoint}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${API_HUB_API_KEY}`,
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API Hub request failed: ${response.status} ${errorText}`)
-  }
-
-  return response.json()
-}
-
-/**
- * Make a raw API Hub request that may return binary data
- * @param {string} endpoint - API endpoint
- * @param {object} data - Request body
- * @returns {Promise<Response>} Raw fetch Response
- */
-async function apiHubRaw(endpoint, data) {
-  if (!API_HUB_API_KEY || API_HUB_API_KEY === 'YOUR_API_KEY_HERE') {
-    throw new Error(
-      'API key not configured. Please update config.json with your API key.',
-    )
-  }
-
-  const response = await fetchWithRetry(`${API_HUB_BASE_URL}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_HUB_API_KEY}`,
-    },
-    body: JSON.stringify(data),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API Hub request failed: ${response.status} ${errorText}`)
-  }
-
-  return response
-}
-
-/**
- * Sends a single email using AWS SES via API Hub
- * Sender is automatically determined from user lookup (name@name.skillboss.live)
- * @param {object} params - Email parameters
- * @param {string} params.subject - Email subject line
- * @param {string} params.bodyHtml - Email body in HTML format
- * @param {string[]} params.receivers - Array of recipient email addresses
- * @param {string[]} [params.replyTo] - Reply-to email addresses
- * @param {string} [params.projectId] - Optional project identifier
- * @returns {Promise<object>} Email send status
- */
-async function sendEmail(params) {
-  const data = {
-    title: params.subject,
-    body_html: params.bodyHtml,
-    receivers: params.receivers,
-    project_id: params.projectId,
-  }
-  if (params.replyTo) data.reply_to = params.replyTo
-
-  return apiHubPost('/send-email', data)
-}
-
-/**
- * Sends batch emails with template variables using AWS SES via API Hub
- * Supports {{variable}} template syntax in subject and body
- * Sender is automatically determined from user lookup (name@name.skillboss.live)
- * @param {object} params - Batch email parameters
- * @param {string} params.subject - Email subject line with template variables
- * @param {string} params.bodyHtml - Email body in HTML format with template variables
- * @param {Array<{email: string, variables: object}>} params.receivers - Recipients with template variables
- * @param {string[]} [params.replyTo] - Reply-to email addresses
- * @param {string} [params.projectId] - Optional project identifier
- * @returns {Promise<object>} Batch email results with per-email status
- */
-async function sendBatchEmails(params) {
-  const data = {
-    title: params.subject,
-    body_html: params.bodyHtml,
-    receivers: params.receivers,
-    project_id: params.projectId,
-  }
-  if (params.replyTo) data.reply_to = params.replyTo
-
-  return apiHubPost('/send-emails', data)
-}
-
-// ============================================================================
-// HIGH-LEVEL COMMAND FUNCTIONS
-// ============================================================================
-
-/**
- * Generic run command - mirrors /run endpoint exactly
- * @param {object} params - Run parameters
- * @param {string} params.model - Model in "vendor/model" format
- * @param {object} params.inputs - Model-specific inputs
- * @param {boolean} [params.stream] - Enable streaming
- * @param {string} [params.output] - Output file path for binary responses
- * @param {boolean} [params.autoFallback] - Enable automatic fallback on errors (default: true)
- * @returns {Promise<object|AsyncGenerator>} Response data or stream
- */
-async function run(params) {
-  const request = {
-    model: params.model,
-    inputs: params.inputs,
-    stream: params.stream || false,
-    auto_fallback: params.autoFallback !== false, // Enable by default
-  }
-
-  if (params.stream) {
-    return apiHubStream('/run', request)
-  }
-
-  if (params.output) {
-    const response = await apiHubRaw('/run', request)
-    const contentType = response.headers.get('content-type') || ''
-
-    if (contentType.includes('audio') || contentType.includes('octet-stream')) {
-      await saveBinaryResponse(response, params.output)
-      return { saved: params.output }
-    }
-    // For JSON responses, check for errors before saving
-    const data = await response.json()
-    if (data.code && data.code >= 400) {
-      throw new Error(data.message || `API error: ${data.code}`)
-    }
-
-    // Check if response contains media URL(s) and download the actual file
-    let mediaUrl = null
-    let mediaType = 'file'
-
-    // Image URL patterns
-    if (
-      Array.isArray(data) &&
-      data.length > 0 &&
-      typeof data[0] === 'string' &&
-      data[0].startsWith('http')
-    ) {
-      // Flux-style response: ["https://..."]
-      mediaUrl = data[0]
-      mediaType = 'image'
-    } else if (data.data && Array.isArray(data.data) && data.data[0]?.url) {
-      // DALL-E style response: {data: [{url: "https://..."}]}
-      mediaUrl = data.data[0].url
-      mediaType = 'image'
-    } else if (
-      data.generated_images &&
-      Array.isArray(data.generated_images) &&
-      data.generated_images[0]
-    ) {
-      // Gemini-style response: {generated_images: ["https://..."]}
-      mediaUrl = data.generated_images[0]
-      mediaType = 'image'
-    } else if (
-      data.image_url &&
-      typeof data.image_url === 'string' &&
-      data.image_url.startsWith('http')
-    ) {
-      // MM-style response: {image_url: "https://..."}
-      mediaUrl = data.image_url
-      mediaType = 'image'
-    }
-    // Video URL patterns
-    else if (data.video_url) {
-      // Common video response: {video_url: "https://..."}
-      mediaUrl = data.video_url
-      mediaType = 'video'
-    } else if (
-      data.output &&
-      typeof data.output === 'string' &&
-      data.output.startsWith('http')
-    ) {
-      // Replicate-style response: {output: "https://..."}
-      mediaUrl = data.output
-      mediaType = 'video'
-    } else if (
-      data.video &&
-      typeof data.video === 'string' &&
-      data.video.startsWith('http')
-    ) {
-      // Alternative video response: {video: "https://..."}
-      mediaUrl = data.video
-      mediaType = 'video'
-    } else if (data.file_id && data.base_resp?.status_code === 0) {
-      // MiniMax async video - need to poll for result
-      // For now, return the response and let user know it's processing
-      console.log('Video generation started. File ID:', data.file_id)
-      fs.writeFileSync(params.output, JSON.stringify(data, null, 2))
-      return { processing: true, file_id: data.file_id, saved: params.output }
-    } else if (
-      data.generatedSamples &&
-      Array.isArray(data.generatedSamples) &&
-      data.generatedSamples[0]?.video?.uri
-    ) {
-      // Vertex/Veo response: {generatedSamples: [{video: {uri: "https://..."}}]}
-      mediaUrl = data.generatedSamples[0].video.uri
-      mediaType = 'video'
-    } else if (data.videos && Array.isArray(data.videos) && data.videos[0]) {
-      // Vertex/Veo response: {videos: ["https://..."]}
-      mediaUrl = data.videos[0]
-      mediaType = 'video'
-    }
-
-    if (mediaUrl) {
-      // Download the actual media file from URL
-      const mediaResponse = await fetch(mediaUrl)
-      if (!mediaResponse.ok) {
-        throw new Error(
-          `Failed to download ${mediaType} from ${mediaUrl}: ${mediaResponse.status}`,
-        )
-      }
-      await saveBinaryResponse(mediaResponse, params.output)
-      return { saved: params.output, url: mediaUrl, type: mediaType }
-    }
-
-    fs.writeFileSync(params.output, JSON.stringify(data, null, 2))
-    return data
-  }
-
-  return apiHubPost('/run', request)
-}
-
-/**
- * Chat completion command
- * @param {object} params - Chat parameters
- * @param {string} params.model - Model in "vendor/model" format
- * @param {string} [params.prompt] - Simple prompt (converted to messages)
- * @param {Array} [params.messages] - Full messages array
- * @param {string} [params.system] - System prompt
- * @param {boolean} [params.stream] - Enable streaming
- * @param {number} [params.maxTokens] - Max tokens
- * @param {number} [params.temperature] - Temperature
- * @returns {Promise<object|AsyncGenerator>} Chat response or stream
- */
-async function chat(params) {
-  let messages = params.messages
-  if (!messages && params.prompt) {
-    messages = [{ role: 'user', content: params.prompt }]
-  }
-  if (!messages) {
-    throw new Error('Either --prompt or --messages is required')
-  }
-
-  const inputs = { messages }
-  if (params.system) inputs.system = params.system
-  if (params.maxTokens) inputs.max_tokens = params.maxTokens
-  if (params.temperature !== undefined) inputs.temperature = params.temperature
-
-  return run({ model: params.model, inputs, stream: params.stream })
-}
-
-/**
- * Text-to-speech command
- * @param {object} params - TTS parameters
- * @param {string} params.model - Model in "vendor/model" format
- * @param {string} params.text - Text to synthesize
- * @param {string} [params.voiceId] - Voice ID (provider-specific)
- * @param {string} params.output - Output audio file path
- * @returns {Promise<object>} TTS result
- */
-async function tts(params) {
-  if (!params.text) {
-    throw new Error('--text is required for TTS')
-  }
-  if (!params.output) {
-    throw new Error('--output is required for TTS')
-  }
-
-  const inputs = {}
-
-  // Provider-specific input mapping
-  const [vendor] = params.model.split('/')
-  if (vendor === 'elevenlabs') {
-    // ElevenLabs uses 'text' and requires voice_id - default to "Rachel"
-    inputs.text = params.text
-    inputs.voice_id = params.voiceId || 'EXAVITQu4vr4xnSDxMaL'
-  } else if (vendor === 'minimax') {
-    // MiniMax uses 'text' and 'voice_setting' object
-    inputs.text = params.text
-    inputs.voice_setting = {
-      voice_id: params.voiceId || 'male-qn-qingse',
-      speed: 1.0,
-      vol: 1.0,
-      pitch: 0,
-    }
-  } else if (vendor === 'openai') {
-    // OpenAI TTS uses 'input' and 'voice'
-    inputs.input = params.text
-    inputs.voice = params.voiceId || 'alloy'
-  } else if (vendor === 'replicate') {
-    // Replicate XTTS uses 'text' and requires 'speaker' (audio URL for voice cloning)
-    inputs.text = params.text
-    if (params.speaker) {
-      inputs.speaker = params.speaker
-    } else if (params.voiceId) {
-      inputs.speaker = params.voiceId
-    } else {
-      // Default speaker sample
-      inputs.speaker =
-        'https://replicate.delivery/pbxt/Jt79w0xsT64R1JsiJ0LQRL8UcWspg5J4RFrU6YwEKpOT1ukS/male.wav'
-    }
-  } else {
-    // Default: use 'text'
-    inputs.text = params.text
-  }
-
-  return run({ model: params.model, inputs, output: params.output })
-}
-
-/**
- * Image generation command
- * @param {object} params - Image parameters
- * @param {string} params.model - Model in "vendor/model" format
- * @param {string} params.prompt - Image generation prompt
- * @param {string} [params.size] - Image size (e.g., "1024x1024")
- * @param {string} [params.output] - Output file path
- * @returns {Promise<object>} Image generation result
- */
-async function image(params) {
-  if (!params.prompt) {
-    throw new Error('--prompt is required for image generation')
-  }
-
-  const [vendor] = params.model.split('/')
-  const inputs = {}
-
-  if (vendor === 'vertex') {
-    inputs.messages = [{ role: 'user', content: params.prompt }]
-  } else if (vendor === 'mm') {
-    // MM uses prompt and size in "1024*1536" format
-    inputs.prompt = params.prompt
-    if (params.size) {
-      // Convert "1024x1536" to "1024*1536" if needed
-      inputs.size = params.size.replace('x', '*')
-    }
-  } else {
-    inputs.prompt = params.prompt
-    if (params.size) inputs.size = params.size
-  }
-
-  return run({ model: params.model, inputs, output: params.output })
-}
-
-/**
- * Web search command
- * @param {object} params - Search parameters
- * @param {string} params.model - Model in "vendor/model" format
- * @param {string} params.query - Search query
- * @returns {Promise<object>} Search results
- */
-async function search(params) {
-  if (!params.query) {
-    throw new Error('--query is required for search')
-  }
-
-  const inputs = {}
-  const [vendor] = params.model.split('/')
-
-  // Provider-specific input mapping
-  if (vendor === 'scrapingdog') {
-    inputs.q = params.query
-  } else if (vendor === 'perplexity') {
-    // Perplexity uses chat-style interface
-    inputs.messages = [{ role: 'user', content: params.query }]
-  } else {
-    inputs.query = params.query
-  }
-
-  return run({ model: params.model, inputs })
-}
-
-/**
- * Web scraping command
- * @param {object} params - Scrape parameters
- * @param {string} params.model - Model in "vendor/model" format
- * @param {string} [params.url] - Single URL to scrape
- * @param {string[]} [params.urls] - Multiple URLs to scrape
- * @returns {Promise<object>} Scrape results
- */
-async function scrape(params) {
-  if (!params.url && !params.urls) {
-    throw new Error('--url or --urls is required for scraping')
-  }
-
-  const inputs = {}
-  const [vendor] = params.model.split('/')
-
-  if (vendor === 'scrapingdog') {
-    inputs.url = params.url
-  } else if (vendor === 'firecrawl') {
-    if (params.urls) {
-      inputs.urls = params.urls
-    } else {
-      inputs.url = params.url
-    }
-  } else {
-    inputs.url = params.url
-  }
-
-  return run({ model: params.model, inputs })
-}
-
-/**
- * Video generation command
- * @param {object} params - Video parameters
- * @param {string} params.model - Model in "vendor/model" format
- * @param {string} params.prompt - Video generation prompt
- * @param {string} [params.output] - Output file path
- * @returns {Promise<object>} Video generation result
- */
-async function video(params) {
-  if (!params.prompt) {
-    throw new Error('--prompt is required for video generation')
-  }
-
-  const [vendor] = params.model.split('/')
-  const inputs = {}
-
-  if (vendor === 'vertex') {
-    // Vertex/Veo uses instances array format
-    inputs.instances = [{ prompt: params.prompt }]
-    inputs.parameters = {}
-  } else if (vendor === 'mm') {
-    // MM video models: t2v (text-to-video), i2v (image-to-video)
-    inputs.prompt = params.prompt
-    if (params.size) {
-      // Convert "1280x720" to "1280*720" if needed
-      inputs.size = params.size.replace('x', '*')
-    }
-    if (params.duration) {
-      inputs.duration = parseInt(params.duration)
-    }
-    if (params.image) {
-      // i2v mode: image-to-video
-      inputs.image_url = params.image
-    }
-  } else {
-    // MiniMax and others use 'prompt'
-    inputs.prompt = params.prompt
-  }
-
-  return run({ model: params.model, inputs, output: params.output })
-}
-
-/**
- * Gamma presentation command
- * @param {object} params - Gamma parameters
- * @param {string} params.model - Model (gamma/generation)
- * @param {string} params.inputText - Presentation input text
- * @returns {Promise<object>} Gamma generation result
- */
-async function gamma(params) {
-  if (!params.inputText) {
-    throw new Error('--input-text is required for Gamma')
-  }
-
-  const inputs = {
-    inputText: params.inputText,
-    format: params.format || 'presentation',
-    textOptions: {
-      language: params.language || 'en'
-    }
-  }
-  return run({ model: params.model, inputs })
-}
-
-/**
- * List available models from API Hub
- * @param {object} [params] - List parameters
- * @param {string} [params.type] - Filter by category (chat, tts, image, video, scraping, etc.)
- * @param {string} [params.vendor] - Filter by vendor
- * @returns {Promise<object>} Models list
- */
-async function listModels(params = {}) {
-  const response = await apiHubGet('/v1/models')
-  let models = response.models || []
-
-  // Filter by category/type
-  if (params.type) {
-    const typeFilter = params.type.toLowerCase()
-    models = models.filter(m =>
-      m.category?.toLowerCase() === typeFilter ||
-      m.type?.toLowerCase() === typeFilter
-    )
-  }
-
-  // Filter by vendor
-  if (params.vendor) {
-    const vendorFilter = params.vendor.toLowerCase()
-    models = models.filter(m => m.vendor?.toLowerCase() === vendorFilter)
-  }
-
-  return { count: models.length, models }
-}
-
+const { fetchWithRetry } = require('./lib/fetch-retry')
+const { config } = require('./lib/client')
+
+// Commands
+const { run } = require('./commands/run')
+const { chat } = require('./commands/chat')
+const { tts } = require('./commands/tts')
+const { stt } = require('./commands/stt')
+const { image, upscale, img2img } = require('./commands/image')
+const { video, multimodal } = require('./commands/video')
+const { search, scrape, linkupSearch, linkupFetch } = require('./commands/search')
+const { sendEmail, sendBatchEmails } = require('./commands/email')
+const { smsVerify, smsCheck, smsSend } = require('./commands/sms')
+const { gamma, document } = require('./commands/document')
+const { music } = require('./commands/music')
+const { pilot } = require('./commands/pilot')
+const { listModels } = require('./commands/models')
 
 // CLI argument parsing
 function parseArgs(args) {
@@ -683,18 +90,31 @@ async function main() {
 SkillBoss API Hub - Multi-Provider API Gateway
 
 Commands:
-  list-models  List available models from API Hub
-  run          Generic endpoint access (any model)
-  chat         Chat completions (bedrock, openai, anthropic, openrouter, vertex, minimax)
-  tts          Text-to-speech (elevenlabs, minimax, openai)
-  image        Image generation (vertex/gemini, replicate/flux, mm/img)
-  search       Web search (scrapingdog, perplexity)
-  scrape       Web scraping (scrapingdog, firecrawl)
-  video        Video generation (minimax, vertex/veo, mm/t2v, mm/i2v)
-  gamma        Presentations (gamma)
-  send-email   Send a single email (aws/ses)
+  pilot        Smart model selector — auto-picks the best model for your task (RECOMMENDED)
+
+  run          Run a specific model by ID
+  chat         Chat completions
+  image        Image generation
+  upscale      Image upscaling
+  img2img      Image-to-image transformation
+  video        Video generation
+  music        Music generation
+  tts          Text-to-speech
+  stt          Speech-to-text
+  multimodal   Video/image/audio understanding
+  search       Web search
+  linkup-search Structured web search
+  linkup-fetch  URL-to-markdown fetcher
+  scrape       Web scraping
+  document     Document processing
+  gamma        Presentations
+  sms-verify   Send OTP verification code
+  sms-check    Check OTP verification code
+  sms-send     Send SMS notification
+  send-email   Send a single email
   send-batch   Send batch emails with templates
-  version      Check for updates and show current/latest version
+  version      Check for updates
+  list-models  List available models from API Hub
 
 Common Options:
   --model        Model in "vendor/model" format (required for most commands)
@@ -702,38 +122,23 @@ Common Options:
   --output       Save response to file (tts, image, video)
   --no-fallback  Disable automatic fallback on errors (fallback is enabled by default)
 
-Examples:
-  # Generic run
-  node api-hub.js run --model "scrapingdog/google_search" --inputs '{"q":"test"}'
+Pilot Examples (recommended — auto-selects best model for your task):
+  node api-hub.js pilot                                                          # See all capabilities
+  node api-hub.js pilot --discover                                               # Browse available model types
+  node api-hub.js pilot --discover --keyword "CEO"                               # Search models by keyword
+  node api-hub.js pilot --type image --prefer price --limit 3                    # Get model recommendations
+  node api-hub.js pilot --type image --prompt "A sunset" --output sunset.png     # Generate image (auto-select)
+  node api-hub.js pilot --type chat --prompt "Explain quantum computing"         # Chat (auto-select)
+  node api-hub.js pilot --type tts --text "Hello world" --output hello.mp3       # Text-to-speech (auto-select)
+  node api-hub.js pilot --type stt --file recording.m4a                          # Speech-to-text (auto-select)
+  node api-hub.js pilot --type music --prompt "upbeat" --duration 30 --output track.mp3  # Music (auto-select)
+  node api-hub.js pilot --type video --prompt "A cat playing" --output video.mp4         # Video (auto-select)
 
-  # Chat
-  node api-hub.js chat --model "bedrock/claude-4-sonnet" --prompt "Hello"
-  node api-hub.js chat --model "openrouter/deepseek/deepseek-r1" --prompt "Hello" --stream
-
-  # TTS
-  node api-hub.js tts --model "elevenlabs/eleven_multilingual_v2" --text "Hello" --output /tmp/audio.mp3
-
-  # Image (default: mm/img)
+Direct Model Calls (when you already have a model ID):
+  node api-hub.js chat --model MODEL_ID --prompt "Hello"
   node api-hub.js image --prompt "A sunset" --output image.png
-  node api-hub.js image --model "vertex/gemini-3-pro-image-preview" --prompt "A sunset"
-  node api-hub.js image --prompt "A sunset" --size "1024*1536" --output image.png
-
-  # Video (default: mm/t2v for text-to-video, mm/i2v for image-to-video)
-  node api-hub.js video --prompt "A cat walking" --duration 5 --output video.mp4
-  node api-hub.js video --prompt "Animate this" --image "https://example.com/cat.jpg" --duration 5 --output video.mp4
-  node api-hub.js video --model "vertex/veo-3.1-fast-generate-preview" --prompt "A sunset" --output video.mp4
-
-  # Search & Scrape
-  node api-hub.js search --model "scrapingdog/google_search" --query "nodejs"
-  node api-hub.js scrape --model "firecrawl/scrape" --url "https://example.com"
-
-  # Email
-  node api-hub.js send-email --to "user@example.com" --subject "Hello" --body "<p>Hi!</p>"
-
-  # List Models
-  node api-hub.js list-models
+  node api-hub.js run --model MODEL_ID --inputs '{"key":"value"}'
   node api-hub.js list-models --type chat
-  node api-hub.js list-models --vendor openai
 `)
     process.exit(0)
   }
@@ -742,6 +147,94 @@ Examples:
     let result
 
     switch (command) {
+      case 'pilot': {
+        result = await pilot(args)
+
+        switch (result.mode) {
+          case 'guide':
+            console.log(JSON.stringify(result.data, null, 2))
+            break
+
+          case 'discover': {
+            const d = result.data
+            if (d.types) {
+              console.log('\nAvailable types:')
+              for (const t of d.types) {
+                console.log(`  ${t}`)
+              }
+            }
+            if (d.matches) {
+              console.log('\nMatches:')
+              for (const m of d.matches) {
+                console.log(`  ${m.id || m.model} — ${m.display_name || m.name || ''}`)
+              }
+            }
+            if (!d.types && !d.matches) {
+              console.log(JSON.stringify(d, null, 2))
+            }
+            break
+          }
+
+          case 'recommend': {
+            const r = result.data
+            if (r.models) {
+              console.log(`\nRecommended models for type "${args.type}":`)
+              for (const m of r.models) {
+                const score = m.score ? ` (score: ${m.score})` : ''
+                const modelId = m.recommended_vendor || m.id || m.base_model || m.model
+                console.log(`  ${modelId}${score}`)
+                if (m.display_name) console.log(`    ${m.display_name}`)
+              }
+            } else {
+              console.log(JSON.stringify(r, null, 2))
+            }
+            break
+          }
+
+          case 'execute': {
+            if (result.saved) {
+              console.log(`Saved to: ${result.saved}`)
+            } else {
+              const d = result.data
+              // Pilot API nests vendor result inside d.result
+              const inner = d.result || d
+              // Try to extract text content
+              const text =
+                inner.choices?.[0]?.message?.content ||
+                inner.content?.[0]?.text ||
+                inner.text ||
+                inner.message?.content ||
+                d.choices?.[0]?.message?.content
+              if (text) {
+                console.log(text)
+              } else {
+                console.log(JSON.stringify(d, null, 2))
+              }
+            }
+            break
+          }
+
+          case 'chain': {
+            const c = result.data
+            if (c.steps) {
+              console.log('\nWorkflow steps:')
+              for (let i = 0; i < c.steps.length; i++) {
+                const step = c.steps[i]
+                console.log(`  Step ${i + 1}: ${step.type} → ${step.model || step.id || '(auto)'}`)
+                if (step.pipe_hint) console.log(`    Pipe: ${step.pipe_hint}`)
+              }
+            } else {
+              console.log(JSON.stringify(c, null, 2))
+            }
+            break
+          }
+
+          default:
+            console.log(JSON.stringify(result.data, null, 2))
+        }
+        break
+      }
+
       case 'list-models': {
         result = await listModels({
           type: args.type,
@@ -863,6 +356,25 @@ Examples:
         break
       }
 
+      case 'stt': {
+        if (!args.file) {
+          console.error('Error: --file is required (local audio file path)')
+          process.exit(1)
+        }
+        result = await stt({
+          file: args.file,
+          model: args.model,
+          prompt: args.prompt,
+          language: args.language,
+          output: args.output,
+        })
+        console.log(result.text)
+        if (result.saved) {
+          console.log(`\nTranscript saved to: ${result.saved}`)
+        }
+        break
+      }
+
       case 'image': {
         if (!args.prompt) {
           console.error('Error: --prompt is required')
@@ -880,6 +392,49 @@ Examples:
           if (result.url) {
             console.log(`URL: ${result.url}`)
           }
+        } else {
+          console.log(JSON.stringify(result, null, 2))
+        }
+        break
+      }
+
+      case 'upscale': {
+        if (!args['image-url']) {
+          console.error('Error: --image-url is required')
+          process.exit(1)
+        }
+        result = await upscale({
+          imageUrl: args['image-url'],
+          scale: args.scale ? parseInt(args.scale) : undefined,
+          outputFormat: args['output-format'],
+          output: args.output,
+        })
+        if (args.output) {
+          console.log(`Upscaled image saved to: ${args.output}`)
+          if (result.url) console.log(`URL: ${result.url}`)
+        } else {
+          console.log(JSON.stringify(result, null, 2))
+        }
+        break
+      }
+
+      case 'img2img': {
+        if (!args['image-url'] || !args.prompt) {
+          console.error('Error: --image-url and --prompt are required')
+          process.exit(1)
+        }
+        result = await img2img({
+          imageUrl: args['image-url'],
+          prompt: args.prompt,
+          strength: args.strength ? parseFloat(args.strength) : undefined,
+          imageSize: args['image-size'],
+          outputFormat: args['output-format'],
+          numImages: args['num-images'] ? parseInt(args['num-images']) : undefined,
+          output: args.output,
+        })
+        if (args.output) {
+          console.log(`Transformed image saved to: ${args.output}`)
+          if (result.url) console.log(`URL: ${result.url}`)
         } else {
           console.log(JSON.stringify(result, null, 2))
         }
@@ -913,6 +468,42 @@ Examples:
         break
       }
 
+      case 'linkup-search': {
+        if (!args.query) {
+          console.error('Error: --query is required')
+          process.exit(1)
+        }
+        result = await linkupSearch({
+          query: args.query,
+          outputType: args['output-type'],
+          depth: args.depth,
+          structuredOutputSchema: args.schema,
+          includeDomains: args['include-domains'] ? JSON.parse(args['include-domains']) : undefined,
+          excludeDomains: args['exclude-domains'] ? JSON.parse(args['exclude-domains']) : undefined,
+          fromDate: args['from-date'],
+          toDate: args['to-date'],
+          maxResults: args['max-results'] ? parseInt(args['max-results']) : undefined,
+          includeImages: args['include-images'] ? args['include-images'] === 'true' : undefined,
+        })
+        console.log(JSON.stringify(result, null, 2))
+        break
+      }
+
+      case 'linkup-fetch': {
+        if (!args.url) {
+          console.error('Error: --url is required')
+          process.exit(1)
+        }
+        result = await linkupFetch({
+          url: args.url,
+          renderJs: args['render-js'] === true || args['render-js'] === 'true',
+          includeImages: args['include-images'] === true || args['include-images'] === 'true',
+          includeRawHtml: args['include-raw-html'] === true || args['include-raw-html'] === 'true',
+        })
+        console.log(JSON.stringify(result, null, 2))
+        break
+      }
+
       case 'video': {
         if (!args.prompt) {
           console.error('Error: --prompt is required')
@@ -939,6 +530,60 @@ Examples:
         break
       }
 
+      case 'music': {
+        if (!args.prompt) {
+          console.error('Error: --prompt is required')
+          process.exit(1)
+        }
+        const musicModel = args.model || 'replicate/elevenlabs/music'
+        result = await music({
+          model: musicModel,
+          prompt: args.prompt,
+          duration: args.duration,
+          output: args.output,
+        })
+        if (args.output) {
+          console.log(`Music saved to: ${args.output}`)
+          if (result.url) {
+            console.log(`URL: ${result.url}`)
+          }
+        } else {
+          console.log(JSON.stringify(result, null, 2))
+        }
+        break
+      }
+
+      case 'multimodal': {
+        if (!args.model) {
+          console.error('Error: --model is required')
+          process.exit(1)
+        }
+        if (!args.prompt) {
+          console.error('Error: --prompt is required')
+          process.exit(1)
+        }
+        if (!args.video && !args.image && !args.audio) {
+          console.error('Error: At least one of --video, --image, or --audio is required')
+          process.exit(1)
+        }
+        result = await multimodal({
+          model: args.model,
+          prompt: args.prompt,
+          video: args.video,
+          image: args.image,
+          audio: args.audio,
+          fps: args.fps,
+        })
+
+        // Extract text from response
+        const text =
+          result.output?.choices?.[0]?.message?.content?.[0]?.text ||
+          result.text ||
+          JSON.stringify(result, null, 2)
+        console.log(text)
+        break
+      }
+
       case 'gamma': {
         if (!args.model || !args['input-text']) {
           console.error('Error: --model and --input-text are required')
@@ -948,6 +593,82 @@ Examples:
           model: args.model,
           inputText: args['input-text'],
         })
+        console.log(JSON.stringify(result, null, 2))
+        break
+      }
+
+      case 'document': {
+        if (!args.model || !args.url) {
+          console.error('Error: --model and --url are required')
+          process.exit(1)
+        }
+        result = await document({
+          model: args.model,
+          url: args.url,
+          schema: args.schema,
+          splitDescription: args['split-description'],
+          instructions: args.instructions,
+          settings: args.settings,
+          output: args.output,
+        })
+        if (args.output) {
+          console.log(`Saved to: ${args.output}`)
+        } else {
+          console.log(JSON.stringify(result, null, 2))
+        }
+        break
+      }
+
+      case 'sms-verify': {
+        if (!args.phone) {
+          console.error('Error: --phone is required (E.164 format, e.g. +1234567890)')
+          process.exit(1)
+        }
+        result = await smsVerify({
+          phone: args.phone,
+          ip: args.ip,
+          deviceId: args['device-id'],
+        })
+        console.log(`\nVerification sent to: ${args.phone}`)
+        console.log(`Status: ${result.status}`)
+        console.log(`Verification ID: ${result.id}`)
+        if (result.channels) {
+          console.log(`Channel: ${result.channels.join(', ')}`)
+        }
+        break
+      }
+
+      case 'sms-check': {
+        if (!args.phone || !args.code) {
+          console.error('Error: --phone and --code are required')
+          process.exit(1)
+        }
+        result = await smsCheck({
+          phone: args.phone,
+          code: args.code,
+        })
+        console.log(`\nVerification check for: ${args.phone}`)
+        console.log(`Status: ${result.status}`)
+        if (result.status === 'success') {
+          console.log('Phone number verified successfully!')
+        } else {
+          console.log('Verification failed. Code may be incorrect or expired.')
+        }
+        break
+      }
+
+      case 'sms-send': {
+        if (!args.phone || !args['template-id']) {
+          console.error('Error: --phone and --template-id are required')
+          process.exit(1)
+        }
+        result = await smsSend({
+          phone: args.phone,
+          templateId: args['template-id'],
+          variables: args.variables ? JSON.parse(args.variables) : undefined,
+          from: args.from,
+        })
+        console.log(`\nSMS sent to: ${args.phone}`)
         console.log(JSON.stringify(result, null, 2))
         break
       }
@@ -1039,9 +760,60 @@ Examples:
     if (process.env.DEBUG && result) {
       console.log('\nDebug Response:', JSON.stringify(result, null, 2))
     }
+
+    // Auto-update check after successful command execution (skip for version command itself)
+    if (command !== 'version') {
+      await checkForUpdates()
+    }
   } catch (error) {
     console.error('\nError:', error.message)
     process.exit(1)
+  }
+}
+
+/**
+ * Check for updates and AUTO-UPDATE if new version available
+ * No user intervention required - Agent will always have latest version
+ */
+async function checkForUpdates() {
+  const { execSync } = require('child_process')
+  const path = require('path')
+  const fs = require('fs')
+
+  try {
+    const localVersion = config.version
+    if (!localVersion || localVersion === 'unknown') return
+
+    const res = await fetchWithRetry('https://www.skillboss.co/api/skills/version', {
+      timeout: 3000,
+    })
+    if (!res.ok) return
+
+    const data = await res.json()
+    if (data.version && data.version !== localVersion) {
+      console.log(`\n[skillboss] Auto-updating: ${localVersion} → ${data.version}`)
+
+      // Find the skillboss directory (parent of scripts/)
+      const scriptDir = __dirname
+      const skillbossDir = path.dirname(scriptDir)
+      const updateScript = path.join(skillbossDir, 'install', 'update.sh')
+
+      if (fs.existsSync(updateScript)) {
+        try {
+          // Run update script silently
+          execSync(`bash "${updateScript}"`, {
+            stdio: 'pipe',
+            timeout: 60000 // 60 second timeout
+          })
+          console.log(`[skillboss] Updated successfully to ${data.version}`)
+        } catch (updateError) {
+          // Update failed, just notify - don't block the workflow
+          console.log(`[skillboss] Auto-update failed. Run manually: bash ./skillboss/install/update.sh`)
+        }
+      }
+    }
+  } catch (e) {
+    // Silently ignore update check errors
   }
 }
 
@@ -1052,16 +824,34 @@ if (process.argv[1]?.endsWith('api-hub.js')) {
 
 // Export for module usage
 module.exports = {
+  // Smart model selector
+  pilot,
+
   // High-level commands
   run,
   chat,
   tts,
+  stt,
   image,
+  upscale,
+  img2img,
+  multimodal,
   search,
   scrape,
   video,
+  music,
+  document,
   gamma,
   listModels,
+
+  // Linkup
+  linkupSearch,
+  linkupFetch,
+
+  // SMS/Verify
+  smsVerify,
+  smsCheck,
+  smsSend,
 
   // Email
   sendEmail,
