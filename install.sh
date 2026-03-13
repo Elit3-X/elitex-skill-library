@@ -10,7 +10,7 @@ REPO_URL="https://github.com/Elit3-X/elitex-skill-library.git"
 echo "EliteX Skill Library — Installing..."
 
 # Create directories
-mkdir -p "$CLAUDE_DIR/skills" "$CLAUDE_DIR/hooks" "$CLAUDE_DIR/scripts" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/logs"
+mkdir -p "$CLAUDE_DIR/skills" "$CLAUDE_DIR/hooks" "$CLAUDE_DIR/scripts" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/agents" "$CLAUDE_DIR/teams" "$CLAUDE_DIR/logs"
 
 # Clone if not running from within the repo
 REPO_DIR="."
@@ -48,6 +48,34 @@ if [ -d "commands" ]; then
     cp commands/*.md "$CLAUDE_DIR/commands/" 2>/dev/null || true
     [ -d "commands/gsd" ] && cp -R commands/gsd "$CLAUDE_DIR/commands/gsd"
     echo "    $(find commands -name '*.md' | wc -l | xargs) commands"
+fi
+
+# Agents
+if [ -d "agents" ]; then
+    echo "  Agents..."
+    cp -R agents/* "$CLAUDE_DIR/agents/"
+    echo "    $(find agents -name '*.md' | wc -l | xargs) agent definitions"
+fi
+
+# GSD Framework
+if [ -d "get-shit-done" ]; then
+    echo "  GSD Framework..."
+    cp -R get-shit-done "$CLAUDE_DIR/get-shit-done"
+    echo "    $(ls -1 get-shit-done/workflows/ 2>/dev/null | wc -l | xargs) workflows"
+fi
+
+# Teams (don't overwrite existing)
+if [ -d "teams" ]; then
+    echo "  Teams..."
+    for team_dir in teams/*/; do
+        team_name=$(basename "$team_dir")
+        if [ ! -d "$CLAUDE_DIR/teams/$team_name" ]; then
+            cp -R "$team_dir" "$CLAUDE_DIR/teams/$team_name"
+            echo "    + $team_name"
+        else
+            echo "    ~ $team_name (exists, skipped)"
+        fi
+    done
 fi
 
 # Global config

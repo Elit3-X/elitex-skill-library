@@ -171,6 +171,8 @@ When the context monitor warns CRITICAL (≤25% remaining), you MUST:
 
 This enables seamless resume via `~/.claude/scripts/infinite-agent.sh --resume` or a new interactive session reading `~/.claude/cache/handoff.json`.
 
+**Auto-Resume Loop (GLOBAL):** The `Stop` hook `auto-resume-loop.js` automatically spawns `infinite-agent.sh --resume` when a session ends with a fresh handoff.json. This means ALL Claude sessions that save a handoff will automatically get a successor — context exhaustion never kills progress. The loop has safety guards (cooldown, PID check, stop file at `/tmp/infinite-agent-stop`). To manually stop the loop: `touch /tmp/infinite-agent-stop`.
+
 **On session start**: if `~/.claude/cache/handoff.json` exists and is non-empty, read it and offer to resume.
 
 ## Secrets Management (Bitwarden) — Autonomous Access
